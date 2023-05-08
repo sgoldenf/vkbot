@@ -1,5 +1,7 @@
 package client
 
+import "encoding/json"
+
 type keyboard struct {
 	Buttons [][]button `json:"buttons"`
 }
@@ -14,36 +16,150 @@ type action struct {
 	Payload map[string]interface{} `json:"payload"`
 }
 
-var (
-	firstLayerButton1 button = button{
-		Action: action{
-			Type:    "callback",
-			Label:   "Button1",
-			Payload: map[string]interface{}{"button": "1"},
-		},
-	}
-	firstLayerButton2 button = button{
-		Action: action{
-			Type:    "callback",
-			Label:   "Button2",
-			Payload: map[string]interface{}{"button": "2"},
-		},
-	}
-	firstLayerButton3 button = button{
-		Action: action{
-			Type:    "callback",
-			Label:   "Button3",
-			Payload: map[string]interface{}{"button": "3"},
-		},
-	}
-	firstLayerButton4 button = button{
-		Action: action{
-			Type:    "callback",
-			Label:   "Button4",
-			Payload: map[string]interface{}{"button": "4"},
-		},
-	}
-	firstLayerKeyboard = keyboard{
-		Buttons: [][]button{{firstLayerButton1, firstLayerButton2, firstLayerButton3, firstLayerButton4}},
-	}
+type buttonType string
+
+const (
+	returnButton buttonType = "return"
 )
+
+func newKeyboardMap() map[string]*keyboard {
+	returnButton := button{
+		Action: action{
+			Type:    "callback",
+			Label:   "Return",
+			Payload: map[string]interface{}{"button": "return"},
+		},
+	}
+	return map[string]*keyboard{
+		"main": {
+			Buttons: [][]button{
+				{
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 1",
+							Payload: map[string]interface{}{"layer": "main", "button": "1", "keyboard": "1"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 2",
+							Payload: map[string]interface{}{"layer": "main", "button": "2", "keyboard": "2"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 3",
+							Payload: map[string]interface{}{"layer": "main", "button": "3", "keyboard": "3"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 4",
+							Payload: map[string]interface{}{"layer": "main", "button": "4", "keyboard": "4"},
+						},
+					},
+				},
+			},
+		},
+		"1": {
+			Buttons: [][]button{
+				{
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 1.1",
+							Payload: map[string]interface{}{"layer": "1", "button": "1.1"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 1.2",
+							Payload: map[string]interface{}{"layer": "1", "button": "1.2"},
+						},
+					},
+				},
+				{
+					returnButton,
+				},
+			},
+		},
+		"2": {
+			Buttons: [][]button{
+				{
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 2.1",
+							Payload: map[string]interface{}{"layer": "2", "button": "2.1"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 2.2",
+							Payload: map[string]interface{}{"layer": "2", "button": "2.2"},
+						},
+					},
+				},
+				{
+					returnButton,
+				},
+			},
+		},
+		"3": {
+			Buttons: [][]button{
+				{
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 3.1",
+							Payload: map[string]interface{}{"layer": "3", "button": "3.1"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 3.2",
+							Payload: map[string]interface{}{"layer": "3", "button": "3.2"},
+						},
+					},
+				},
+				{
+					returnButton,
+				},
+			},
+		},
+		"4": {
+			Buttons: [][]button{
+				{
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 4.1",
+							Payload: map[string]interface{}{"layer": "4", "button": "4.1"},
+						},
+					},
+					{
+						Action: action{
+							Type:    "callback",
+							Label:   "Button 4.2",
+							Payload: map[string]interface{}{"layer": "4", "button": "4.2"},
+						},
+					},
+				},
+				{
+					returnButton,
+				},
+			},
+		},
+	}
+}
+
+func (k *keyboard) toJSON() ([]byte, error) {
+	return json.Marshal(k)
+}
