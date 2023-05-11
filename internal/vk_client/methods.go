@@ -1,9 +1,7 @@
 package client
 
-type method string
-
 const (
-	getLongPollServerMethod      method = "groups.getLongPollServer"
-	messagesSendMethod           method = "messages.send"
-	sendMessageEventAnswerMethod method = "messages.sendMessageEventAnswer"
+	getLongPollServerMethod      string = "groups.getLongPollServer"
+	messagesSendMethod           string = "messages.send"
+	sendMessageEventAnswerMethod string = "messages.sendMessageEventAnswer"
 )

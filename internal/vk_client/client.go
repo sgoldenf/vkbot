@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -18,12 +19,14 @@ const (
 )
 
 type VkClient struct {
-	http.Client `json:"-"`
-	ApiToken    string               `json:"-"`
-	Session     sessionData          `json:"response"`
-	errorLog    *log.Logger          `json:"-"`
-	randomizer  *rand.Rand           `json:"-"`
-	keyboards   map[string]*keyboard `json:"-"`
+	http.Client   `json:"-"`
+	ApiToken      string               `json:"-"`
+	GroupID       string               `json:"-"`
+	Session       sessionData          `json:"response"`
+	errorLog      *log.Logger          `json:"-"`
+	randomizer    *rand.Rand           `json:"-"`
+	keyboards     map[string]*keyboard `json:"-"`
+	errorHabdlers map[int]func(int)
 }
 
 type sessionData struct {
@@ -39,7 +42,7 @@ type pollData struct {
 }
 
 type update struct {
-	EventType event                  `json:"type"`
+	EventType string                 `json:"type"`
 	Object    map[string]interface{} `json:"object"`
 }
 
@@ -49,25 +52,31 @@ func New(accessToken, groupID string) *VkClient {
 	r := rand.New(s)
 	vkClient := &VkClient{
 		ApiToken:   accessToken,
+		GroupID:    groupID,
 		errorLog:   errorLog,
 		randomizer: r,
 		keyboards:  newKeyboardMap(),
 	}
-	params := map[string]string{"group_id": groupID, "v": apiVersion}
-	resp, err := vkClient.get(vkAPI, getLongPollServerMethod, params)
+	vkClient.setHandlers()
+	vkClient.setLongPollServer()
+	return vkClient
+}
+
+func (c *VkClient) setLongPollServer() {
+	params := map[string]string{"group_id": c.GroupID, "v": apiVersion}
+	resp, err := c.get(vkAPI, getLongPollServerMethod, params)
 	if err != nil {
-		errorLog.Fatal(err)
+		c.errorLog.Println(err)
 	}
 	defer resp.Body.Close()
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		errorLog.Fatal(err)
+		c.errorLog.Println(err)
 	}
-	if err := json.Unmarshal(bodyBytes, &vkClient); err != nil {
-		errorLog.Fatal(err)
+	if err := json.Unmarshal(bodyBytes, c); err != nil {
+		c.errorLog.Fatal(err)
 	}
-	vkClient.Session.Wait = "25"
-	return vkClient
+	c.Session.Wait = "25"
 }
 
 func (c *VkClient) Poll() {
@@ -84,14 +93,40 @@ func (c *VkClient) Poll() {
 		c.errorLog.Println(err)
 		return
 	}
+	c.processPollData(bodyBytes)
+}
+
+func (c *VkClient) processPollData(bodyBytes []byte) {
 	var data pollData
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
 		c.errorLog.Println(err)
 		return
 	}
-	c.Session.Ts = data.NewTs
-	for _, u := range data.Updates {
-		c.processUpdate(&u)
+	if strings.HasPrefix(string(bodyBytes), `{"failed":`) {
+		c.processError(bodyBytes)
+		return
+	}
+	if len(data.Updates) > 0 {
+		c.Session.Ts = data.NewTs
+		for _, u := range data.Updates {
+			c.processUpdate(&u)
+		}
+	}
+}
+
+func (c *VkClient) processError(bodyBytes []byte) {
+	var failed struct {
+		Code int `json:"failed"`
+		Ts   int `json:"ts"`
+	}
+	if err := json.Unmarshal(bodyBytes, &failed); err != nil {
+		c.errorLog.Println(err)
+		return
+	}
+	if handler, ok := c.errorHabdlers[failed.Code]; !ok {
+		c.errorLog.Println("Unknown error code:", failed.Code)
+	} else {
+		handler(failed.Ts)
 	}
 }
 
@@ -100,7 +135,7 @@ func (c *VkClient) processUpdate(u *update) {
 		message := u.Object["message"].(map[string]interface{})
 		c.sendMessage(
 			uint64(message["from_id"].(float64)),
-			string(greetingMessage),
+			greetingMessage,
 			"main",
 		)
 	} else if u.EventType == messageEvent {
@@ -115,7 +150,7 @@ func (c *VkClient) processMessageEvent(object map[string]interface{}) {
 	userID := uint64(object["user_id"].(float64))
 	payload := object["payload"].(map[string]interface{})
 	if button := buttonType(payload["button"].(string)); button == returnButton {
-		c.sendMessage(userID, string(greetingMessage), "main")
+		c.sendMessage(userID, greetingMessage, "main")
 	} else {
 		message := "You Chose Button " + payload["button"].(string) +
 			" in layer " + payload["layer"].(string)
@@ -165,8 +200,8 @@ func (c *VkClient) sendMessage(userID uint64, message, keyboard string) {
 	resp.Body.Close()
 }
 
-func (c *VkClient) get(urlPath string, method method, params map[string]string) (*http.Response, error) {
-	urlPath += string(method)
+func (c *VkClient) get(urlPath, method string, params map[string]string) (*http.Response, error) {
+	urlPath += method
 	queryParams := url.Values{}
 	for k, v := range params {
 		queryParams.Set(k, v)

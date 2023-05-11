@@ -1,7 +1,5 @@
 package client
 
-type message string
-
 const (
-	greetingMessage message = "Welcome! Choose a button below:"
+	greetingMessage string = "Welcome! Choose a button below:"
 )
