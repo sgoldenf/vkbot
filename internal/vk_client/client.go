@@ -137,10 +137,11 @@ func (c *VkClient) sendMessageEventAnswer(object map[string]interface{}) {
 		"user_id":  userID,
 		"peer_id":  fmt.Sprint(uint64(peerID)),
 	}
-	_, err := c.get(vkAPI, sendMessageEventAnswerMethod, params)
+	resp, err := c.get(vkAPI, sendMessageEventAnswerMethod, params)
 	if err != nil {
 		c.errorLog.Println(err)
 	}
+	resp.Body.Close()
 }
 
 func (c *VkClient) sendMessage(userID uint64, message, keyboard string) {
@@ -157,10 +158,11 @@ func (c *VkClient) sendMessage(userID uint64, message, keyboard string) {
 		}
 		params["keyboard"] = string(keyboardBytes)
 	}
-	_, err := c.get(vkAPI, messagesSendMethod, params)
+	resp, err := c.get(vkAPI, messagesSendMethod, params)
 	if err != nil {
 		c.errorLog.Println(err)
 	}
+	resp.Body.Close()
 }
 
 func (c *VkClient) get(urlPath string, method method, params map[string]string) (*http.Response, error) {
